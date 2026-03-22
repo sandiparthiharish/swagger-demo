@@ -1,0 +1,199 @@
+openapi: 3.0.3
+info:
+  title: Polymorphic API Example
+  version: 1.0.0
+
+paths:
+  /payments:
+    post:
+      tags:
+        - Payments
+      summary: Create a payment
+      operationId: createPayment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentRequestBase'
+      responses:
+        '200':
+          description: Payment created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentResponseBase'
+
+  /refunds:
+    post:
+      tags:
+        - Refunds
+      summary: Create a refund
+      operationId: createRefund
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/FullRefundRequest'
+                - $ref: '#/components/schemas/PartialRefundRequest'
+              discriminator:
+                propertyName: refundType
+                mapping:
+                  full: '#/components/schemas/FullRefundRequest'
+                  partial: '#/components/schemas/PartialRefundRequest'
+      responses:
+        '200':
+          description: Refund processed
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/FullRefundResponse'
+                  - $ref: '#/components/schemas/PartialRefundResponse'
+                discriminator:
+                  propertyName: refundType
+                  mapping:
+                    full: '#/components/schemas/FullRefundResponse'
+                    partial: '#/components/schemas/PartialRefundResponse'
+
+components:
+  schemas:
+
+    # ======================
+    # REQUEST MODELS (oneOf)
+    # ======================
+
+    PaymentRequestBase:
+      type: object
+      required:
+        - paymentType
+        - amount
+      properties:
+        paymentType:
+          type: string
+        amount:
+          type: number
+          format: double
+      discriminator:
+        propertyName: paymentType
+        mapping:
+          card: '#/components/schemas/CardPaymentRequest'
+          paypal: '#/components/schemas/PaypalPaymentRequest'
+
+    CardPaymentRequest:
+      allOf:
+        - $ref: '#/components/schemas/PaymentRequestBase'
+        - type: object
+          required:
+            - cardNumber
+          properties:
+            cardNumber:
+              type: string
+
+    PaypalPaymentRequest:
+      allOf:
+        - $ref: '#/components/schemas/PaymentRequestBase'
+        - type: object
+          required:
+            - email
+          properties:
+            email:
+              type: string
+
+    RefundRequestBase:
+      type: object
+      required:
+        - refundType
+        - paymentId
+      properties:
+        refundType:
+          type: string
+        paymentId:
+          type: string
+
+    FullRefundRequest:
+      allOf:
+        - $ref: '#/components/schemas/RefundRequestBase'
+        - type: object
+          properties: {}
+
+    PartialRefundRequest:
+      allOf:
+        - $ref: '#/components/schemas/RefundRequestBase'
+        - type: object
+          required:
+            - amount
+          properties:
+            amount:
+              type: number
+              format: double
+
+    # ======================
+    # RESPONSE MODELS (allOf + discriminator)
+    # ======================
+
+    PaymentResponseBase:
+      type: object
+      required:
+        - paymentType
+        - id
+        - status
+      properties:
+        paymentType:
+          type: string
+        id:
+          type: string
+        status:
+          type: string
+      discriminator:
+        propertyName: paymentType
+        mapping:
+          card: '#/components/schemas/CardPaymentResponse'
+          paypal: '#/components/schemas/PaypalPaymentResponse'
+
+    CardPaymentResponse:
+      allOf:
+        - $ref: '#/components/schemas/PaymentResponseBase'
+        - type: object
+          properties:
+            last4:
+              type: string
+
+    PaypalPaymentResponse:
+      allOf:
+        - $ref: '#/components/schemas/PaymentResponseBase'
+        - type: object
+          properties:
+            accountEmail:
+              type: string
+
+    RefundResponseBase:
+      type: object
+      required:
+        - refundType
+        - refundId
+      properties:
+        refundType:
+          type: string
+        refundId:
+          type: string
+
+    FullRefundResponse:
+      allOf:
+        - $ref: '#/components/schemas/RefundResponseBase'
+        - type: object
+          properties:
+            refundedAt:
+              type: string
+              format: date-time
+
+    PartialRefundResponse:
+      allOf:
+        - $ref: '#/components/schemas/RefundResponseBase'
+        - type: object
+          properties:
+            refundedAmount:
+              type: number
+              format: double
